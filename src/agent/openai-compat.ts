@@ -26,6 +26,8 @@ export interface OpenAICompatOptions {
   baseUrl: string;
   model: string;
   apiKey?: string;
+  /** Sent as reasoning_effort; providers without reasoning controls ignore it. */
+  effort?: "low" | "medium" | "high";
 }
 
 export class OpenAICompatModel implements ModelClient {
@@ -45,6 +47,7 @@ export class OpenAICompatModel implements ModelClient {
         "input_schema" in t ? [{ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }] : [],
       ),
       tool_choice: "auto",
+      ...(this.opts.effort ? { reasoning_effort: this.opts.effort } : {}),
     });
     let res: Response;
     // Free tiers return 429/503 under load; retry with backoff like the Anthropic SDK does.

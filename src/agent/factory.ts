@@ -28,5 +28,7 @@ export function makeModel(spec = DEFAULT_MODEL, effort: Effort = "medium"): Mode
   const p = PROVIDERS[provider];
   const apiKey = p.keyEnv ? process.env[p.keyEnv] : undefined;
   if (p.keyEnv && !apiKey) throw new Error(`${provider} needs ${p.keyEnv} set in the environment.`);
-  return new OpenAICompatModel({ baseUrl: process.env.LIVEDEMO_BASE_URL ?? p.baseUrl, model: spec.slice(i + 1), apiKey });
+  // OpenAI-style reasoning_effort tops out at "high".
+  const oaiEffort = effort === "low" || effort === "medium" ? effort : "high";
+  return new OpenAICompatModel({ baseUrl: process.env.LIVEDEMO_BASE_URL ?? p.baseUrl, model: spec.slice(i + 1), apiKey, effort: provider === "gemini" ? oaiEffort : undefined });
 }
