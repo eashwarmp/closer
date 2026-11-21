@@ -4,6 +4,8 @@
 
 Voice-ready · MCP server · 21-scenario eval suite
 
+Its sibling, [prototype-demo-recorder](https://github.com/eashwarmp/prototype-demo-recorder), turns Figma prototypes into frame-accurate demo videos. Closer gives the demo live.
+
 > "Can you show me how to create a lead, assign it to a salesperson, and set up a follow-up?"
 >
 > *(agent starts filling in the form)*
@@ -149,6 +151,11 @@ src/eval/       scenarios, runner (simulated buyer), report
 src/cli/        demo, eval, compare, crm
 tests/          end-to-end harness tests with scripted agents; MCP client tests
 ```
+
+## Related projects
+
+- **[prototype-demo-recorder](https://github.com/eashwarmp/prototype-demo-recorder):** the recorded counterpart to Closer. It turns a Figma prototype (or any web page) into real-time, frame-accurate MP4s with a timestamped log of every tap, scroll, and narration cue, ready to line up with voice-over. Use it for polished demo videos before the product is built; use Closer for live, interactive demos once it is.
+- **[MyCompass](https://github.com/eashwarmp/MyCompass):** a campus events feed. A scraper feeds an LLM that turns messy listings into clean, ranked cards, cached in Redis and served to an Expo app on iOS, Android, and the web. Built with [@JeevanReddy09](https://github.com/JeevanReddy09).
 
 ## Roadmap
 
