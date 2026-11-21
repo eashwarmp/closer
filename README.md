@@ -17,6 +17,7 @@ A scripted Playwright test can't handle that second line. This agent reads the l
 | **Pipewise CRM** (`src/crm`) | A small sample CRM (leads, owners, stages, follow-ups, activity history, dashboard) with a fault-injection switchboard: blocking modals, moved buttons with random ids, reworded labels, slow and failing writes. |
 | **Browser layer** (`src/browser`) | Playwright with an accessibility-style page snapshot. Interactive elements get refs (`e12`) that are valid for one document only, so a stale ref after a navigation is an explicit error, never a misclick. Every action returns the page state afterwards, so the agent verifies instead of assuming. Network access is limited to the demo app. |
 | **Agent** (`src/agent`) | A tool-use loop on Claude (`say`, `observe`, `click`, `type_text`, `select_option`, `navigate`, `wait`, `screenshot`, `request_approval`). Narration streams out as soon as each `say` call finishes. Model is pluggable: Claude or any OpenAI-compatible endpoint (Ollama, Groq, Cerebras, OpenRouter). |
+| **MCP server** (`src/mcp`) | The same browser tools and safety rails as an MCP server, built on the official TypeScript SDK. Claude Desktop, Claude Code, or any MCP client can run the demo, and its own model does the reasoning, so no API key is needed. |
 | **Eval harness** (`src/eval`) | A simulated buyer that interrupts on triggers ("right after the agent picks Marcus"), answers approval questions, and replies to clarifying questions. Grading is done against the CRM's real state plus the transcript. |
 
 ## How interruptions work
@@ -34,6 +35,36 @@ The conversation history is append-only (thinking blocks stay valid, and the pro
 - **Consequential actions need approval.** Elements marked `data-consequential` (the final "Delete" confirmation) can't be clicked until `request_approval` gets a clear yes from the buyer. Each approval is good for one action. Asking with `say` doesn't count.
 - **The browser can't leave the demo app.** Other origins are blocked at the network layer.
 - **Stale element refs fail loudly.** A ref from a previous page is rejected along with the current page state, so the agent never clicks the wrong thing.
+
+## Use it from any MCP client
+
+`src/mcp` exposes Pipewise and the browser as an MCP server (official `@modelcontextprotocol/sdk`, stdio). A browser window opens on first use so you can watch the demo. The model in your MCP client drives it.
+
+**Claude Code:** this repo ships a `.mcp.json`, so opening the repo in Claude Code offers the `livedemo` server. From anywhere else:
+
+```
+claude mcp add livedemo -- node /path/to/livedemo-agent/bin/livedemo-mcp.mjs
+```
+
+**Claude Desktop:** add to `claude_desktop_config.json`:
+
+```json
+{ "mcpServers": { "livedemo": { "command": "node", "args": ["/path/to/livedemo-agent/bin/livedemo-mcp.mjs"] } } }
+```
+
+Then use the **Run a Pipewise demo** prompt (`run_demo`), or just ask: "Show me how to create a lead in Pipewise and assign it to Sarah."
+
+| Tool | What it does |
+|---|---|
+| `observe`, `screenshot` | Read the page (URL, dialogs, notifications, element refs) or see it as an image |
+| `click`, `type_text`, `select_option`, `press_key`, `navigate`, `wait` | Drive the browser; each returns the page state afterwards |
+| `request_approval` | Shows the person a yes/no prompt (MCP elicitation) before a destructive click. One yes allows one action. |
+| `record_user_approval` | Fallback for clients without elicitation: records the person's verbatim "yes". Marked destructive, so clients ask permission before running it. |
+| `reset_demo` | Restore demo data, optionally with faults on (blocking modal, moved buttons, reworded labels, slow or failing saves) to rehearse recovery |
+
+Also: resource `pipewise://state` (all CRM data as JSON) and prompt `run_demo`. Settings: `LIVEDEMO_HEADLESS=1` hides the window, `LIVEDEMO_CRM_URL` points at an existing CRM, `LIVEDEMO_CRM_PORT` (default 4100). Run `npm run mcp:inspect` to explore it in the MCP Inspector.
+
+`tests/mcp.test.ts` is the reference client. It uses the SDK's `Client` over the real stdio launcher and over an in-memory transport, and covers a full create-lead flow, screenshots, the resource, and both approval paths.
 
 ## Eval suite
 
@@ -111,9 +142,10 @@ A demo is 20 to 40 model calls with a 10K to 40K-token context, and the model ha
 src/crm/        sample CRM: data, pages, fault injection
 src/browser/    Playwright session + page snapshot
 src/agent/      agent loop, tools, prompt, model clients
+src/mcp/        MCP server (official SDK) + stdio entry point; bin/livedemo-mcp.mjs launches it
 src/eval/       scenarios, runner (simulated buyer), report
 src/cli/        demo, eval, compare, crm
-tests/          end-to-end harness tests with scripted agents
+tests/          end-to-end harness tests with scripted agents; MCP client tests
 ```
 
 ## Roadmap

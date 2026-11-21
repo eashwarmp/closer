@@ -3,7 +3,7 @@ import { TODAY } from "../crm/store.js";
 // Bump when the prompt changes so eval runs can be compared across versions.
 export const PROMPT_VERSION = "v1";
 
-const PRODUCT_FACTS = `
+export const PRODUCT_FACTS = `
 - Pipewise is a CRM for B2B sales teams of 5 to 200 reps.
 - Plans: Team is $49 per seat per month (billed annually) or $59 month-to-month. Enterprise is custom-priced and adds SSO/SAML, audit logs, and a 99.9% uptime SLA.
 - Integrations: Gmail, Outlook, Google Calendar, Slack (deal alerts and follow-up reminders in channels), Zapier, and a REST API with webhooks. No native Salesforce sync; customers migrate with a CSV importer.

@@ -52,6 +52,11 @@ export class BrowserSession {
     return new BrowserSession(browser, context, page, opts);
   }
 
+  /** False once the window or page has been closed (e.g. by the person watching). */
+  get isOpen(): boolean {
+    return !this.page.isClosed() && this.browser.isConnected();
+  }
+
   get url(): string {
     return this.page.url();
   }

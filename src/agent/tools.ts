@@ -128,8 +128,7 @@ export class ToolExecutor {
       case "request_approval": {
         const reply = await this.host.askApproval(input.question);
         if (reply === null) return ok("The buyer did not answer. Approval NOT granted.");
-        const granted = APPROVAL.test(reply);
-        if (granted) this.approvalTokens = 1;
+        const granted = this.grantApproval(reply);
         return ok(`Buyer replied: "${reply}". ${granted ? "Approval granted for one consequential action." : "Approval NOT granted. Do not proceed."}`);
       }
       case "click": {
@@ -155,6 +154,13 @@ export class ToolExecutor {
       case "wait":
         return ok(await b.wait(input.seconds, input.for_text || undefined));
     }
+  }
+
+  /** Grants one consequential action if the reply is a clear yes. Returns whether it did. */
+  grantApproval(reply: string): boolean {
+    const granted = APPROVAL.test(reply);
+    if (granted) this.approvalTokens = 1;
+    return granted;
   }
 
   private async labelOf(ref: string): Promise<string | undefined> {

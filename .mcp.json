@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "livedemo": {
+      "command": "node",
+      "args": ["bin/livedemo-mcp.mjs"]
+    }
+  }
+}
