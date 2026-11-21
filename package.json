@@ -1,0 +1,28 @@
+{
+  "name": "livedemo-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A sales-demo agent that drives a real browser while talking to a buyer, with an eval suite for interruptions and browser failures.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "crm": "tsx src/cli/crm.ts",
+    "demo": "tsx src/cli/demo.ts",
+    "eval": "tsx src/cli/eval.ts",
+    "compare": "tsx src/cli/compare.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "playwright": "^1.65.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

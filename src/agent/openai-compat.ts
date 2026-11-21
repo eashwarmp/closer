@@ -1,0 +1,111 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import type { ModelCallbacks, ModelClient, ModelRequest } from "./model.js";
+
+// Adapter for any OpenAI-compatible chat endpoint (Ollama, Groq, Cerebras, OpenRouter, LM Studio,
+// vLLM), so open models can run the same agent and the same evals. The agent keeps one message
+// format (Anthropic's); this translates on the way out and back.
+
+type OaiMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: OaiToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+interface OaiToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+interface OaiResponse {
+  model: string;
+  choices: { message: { content: string | null; tool_calls?: OaiToolCall[] }; finish_reason: string }[];
+  usage?: { prompt_tokens: number; completion_tokens: number; prompt_tokens_details?: { cached_tokens?: number } };
+}
+
+export interface OpenAICompatOptions {
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+}
+
+export class OpenAICompatModel implements ModelClient {
+  readonly model: string;
+
+  constructor(private opts: OpenAICompatOptions) {
+    this.model = opts.model;
+  }
+
+  async create(req: ModelRequest, signal: AbortSignal, cb: ModelCallbacks = {}): Promise<Anthropic.Beta.BetaMessage> {
+    const res = await fetch(`${this.opts.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      signal,
+      headers: { "content-type": "application/json", ...(this.opts.apiKey ? { authorization: `Bearer ${this.opts.apiKey}` } : {}) },
+      body: JSON.stringify({
+        model: this.opts.model,
+        messages: toOpenAI(req),
+        tools: req.tools.flatMap((t) =>
+          "input_schema" in t ? [{ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }] : [],
+        ),
+        tool_choice: "auto",
+      }),
+    });
+    if (!res.ok) throw new Error(`${this.opts.baseUrl} returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const message = fromOpenAI((await res.json()) as OaiResponse);
+    for (const block of message.content) cb.onBlock?.(block);
+    return message;
+  }
+}
+
+function textOf(content: Anthropic.Beta.BetaToolResultBlockParam["content"]): string {
+  if (typeof content === "string") return content;
+  return (content ?? []).map((c) => (c.type === "text" ? c.text : `[${c.type} omitted]`)).join("\n");
+}
+
+export function toOpenAI(req: ModelRequest): OaiMessage[] {
+  const out: OaiMessage[] = [{ role: "system", content: req.system }];
+  for (const m of req.messages) {
+    const blocks = typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : (m.content ?? []);
+    if (m.role === "assistant") {
+      const text = blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+      const calls = blocks.flatMap((b) =>
+        b.type === "tool_use" ? [{ id: b.id, type: "function" as const, function: { name: b.name, arguments: JSON.stringify(b.input) } }] : [],
+      );
+      out.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
+      continue;
+    }
+    // Tool results must directly follow the assistant turn that called them; text goes after.
+    for (const b of blocks) if (b.type === "tool_result") out.push({ role: "tool", tool_call_id: b.tool_use_id, content: (b.is_error ? "ERROR: " : "") + textOf(b.content) });
+    const text = blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
+    if (text) out.push({ role: "user", content: text });
+  }
+  return out;
+}
+
+export function fromOpenAI(r: OaiResponse): Anthropic.Beta.BetaMessage {
+  const choice = r.choices[0];
+  const content: Anthropic.Beta.BetaContentBlock[] = [];
+  if (choice.message.content?.trim()) content.push({ type: "text", text: choice.message.content, citations: null } as Anthropic.Beta.BetaTextBlock);
+  for (const call of choice.message.tool_calls ?? []) {
+    let input: unknown = {};
+    try {
+      input = JSON.parse(call.function.arguments || "{}");
+    } catch {
+      input = { __unparseable: call.function.arguments };
+    }
+    content.push({ type: "tool_use", id: call.id || `call_${Math.random().toString(36).slice(2, 10)}`, name: call.function.name, input } as Anthropic.Beta.BetaToolUseBlock);
+  }
+  const usage = {
+    input_tokens: (r.usage?.prompt_tokens ?? 0) - (r.usage?.prompt_tokens_details?.cached_tokens ?? 0),
+    output_tokens: r.usage?.completion_tokens ?? 0,
+    cache_read_input_tokens: r.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    cache_creation_input_tokens: 0,
+  } as Anthropic.Beta.BetaUsage;
+  return {
+    id: `oai_${Date.now()}`,
+    type: "message",
+    role: "assistant",
+    model: r.model,
+    content,
+    stop_reason: content.some((b) => b.type === "tool_use") ? "tool_use" : choice.finish_reason === "length" ? "max_tokens" : "end_turn",
+    stop_sequence: null,
+    usage,
+  } as unknown as Anthropic.Beta.BetaMessage;
+}
