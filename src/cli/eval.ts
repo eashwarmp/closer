@@ -47,12 +47,19 @@ try {
 
 const repeat = Math.max(1, Number(args.repeat));
 // A run id is the scenario id, plus ~N when repeating, so trials get separate trace folders.
-const runIds = only ?? SCENARIOS.flatMap((s) => Array.from({ length: repeat }, (_, k) => (repeat > 1 ? `${s.id}~${k + 1}` : s.id)));
+const requested = only ?? SCENARIOS.flatMap((s) => Array.from({ length: repeat }, (_, k) => (repeat > 1 ? `${s.id}~${k + 1}` : s.id)));
 
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
 const tag = args.tag ?? args.model.replace(/[^\w.-]+/g, "_");
 const outDir = path.resolve(args.out ?? path.join("runs", `${stamp}-${tag}`));
 fs.mkdirSync(outDir, { recursive: true });
+
+// Re-using an --out folder resumes it: scenarios with a finished result are skipped, and the report
+// covers everything in the folder. Lets a quota-limited free tier build up a full run over several days.
+const resultFile = (id: string) => path.join(outDir, "scenarios", id, "result.json");
+const finished = (id: string) => fs.existsSync(resultFile(id)) && (JSON.parse(fs.readFileSync(resultFile(id), "utf8")) as ScenarioResult).outcome !== "crashed";
+const runIds = args.worker ? requested : requested.filter((id) => !finished(id));
+if (runIds.length < requested.length) console.log(`Resuming ${outDir}: ${requested.length - runIds.length} scenario(s) already done.`);
 
 async function runIdsHere(ids: string[]): Promise<void> {
   const crm = await startCrm();
@@ -71,8 +78,8 @@ async function runIdsHere(ids: string[]): Promise<void> {
           log: args.quiet ? undefined : (line) => console.log(line),
         },
       );
-      if (r.outcome === "crashed" && /\b429\b[\s\S]*(per day|PerDay)/.test(r.error ?? "")) {
-        console.log(`⛔ ${runId}: provider's daily quota is exhausted; stopping this worker.\n   ${r.error?.match(/retry in [^.]+/i)?.[0] ?? ""}`);
+      if (r.outcome === "crashed" && /429 per-day quota/.test(r.error ?? "")) {
+        console.log(`⛔ ${runId}: ${r.error} Stopping; re-run with --out ${outDir} to resume.`);
         break;
       }
       console.log(`${r.outcome === "crashed" ? "⚠️  ERROR" : r.passed ? "✅ PASS" : "❌ FAIL"} ${runId} (${(r.durationMs / 1000).toFixed(0)}s, $${r.costUsd.toFixed(3)})${r.passed ? "" : r.error ? `  crashed: ${r.error}` : `  ${r.checks.filter((c) => !c.pass).map((c) => c.name).join("; ") || r.outcome}`}`);
@@ -109,10 +116,10 @@ if (n === 1) {
   );
 }
 
-const results: ScenarioResult[] = runIds.flatMap((id) => {
-  const file = path.join(outDir, "scenarios", id, "result.json");
-  return fs.existsSync(file) ? [JSON.parse(fs.readFileSync(file, "utf8")) as ScenarioResult] : [];
-});
+const scenarioDirs = fs.existsSync(path.join(outDir, "scenarios")) ? fs.readdirSync(path.join(outDir, "scenarios")).sort() : [];
+const results: ScenarioResult[] = scenarioDirs.flatMap((id) =>
+  fs.existsSync(resultFile(id)) ? [JSON.parse(fs.readFileSync(resultFile(id), "utf8")) as ScenarioResult] : [],
+);
 let gitSha: string | null = null;
 try {
   gitSha = execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || null;
@@ -122,4 +129,4 @@ const summary = summarize(meta, results);
 fs.writeFileSync(path.join(outDir, "summary.json"), JSON.stringify(summary, null, 2));
 fs.writeFileSync(path.join(outDir, "report.md"), renderMarkdown(summary, results));
 console.log(`\n${summary.passed}/${summary.scenarios} passed${summary.errored ? `, ${summary.errored} errored (excluded)` : ""}. Report: ${path.join(outDir, "report.md")}`);
-if (results.length < runIds.length) console.log(`⚠ ${runIds.length - results.length} run(s) produced no result; see worker output above.`);
+if (results.filter((r) => runIds.includes(r.id)).length < runIds.length) console.log(`⚠ ${runIds.length - results.length} run(s) produced no result; see worker output above.`);

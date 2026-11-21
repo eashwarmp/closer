@@ -59,10 +59,20 @@ export class OpenAICompatModel implements ModelClient {
         body,
       });
       if (res.ok || attempt >= MAX_RETRIES || !(res.status === 429 || res.status >= 500)) break;
+      // A per-day quota won't clear in seconds; fail now instead of backing off.
+      const errText = await res.clone().text();
+      if (res.status === 429 && /per ?day/i.test(errText)) break;
       const retryAfter = Number(res.headers.get("retry-after"));
       await sleep(retryAfter > 0 ? Math.min(retryAfter, 30) * 1000 : 1000 * 2 ** attempt, signal);
     }
-    if (!res.ok) throw new Error(`${this.opts.baseUrl} returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) {
+      const errText = await res.text();
+      if (res.status === 429 && /per ?day/i.test(errText)) {
+        const wait = errText.match(/retry in ((?:\d+h)?(?:\d+m)?)/i)?.[1];
+        throw new Error(`429 per-day quota exhausted for ${this.opts.model}${wait ? `; resets in about ${wait}` : ""}.`);
+      }
+      throw new Error(`${this.opts.baseUrl} returned ${res.status}: ${errText.slice(0, 300)}`);
+    }
     const data = (await res.json()) as OaiResponse;
     for (const call of data.choices[0]?.message.tool_calls ?? []) if (call.extra_content) this.extras.set(call.id, call.extra_content);
     const message = fromOpenAI(data);

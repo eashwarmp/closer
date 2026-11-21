@@ -43,6 +43,7 @@ npm run eval -- --only interrupt-reassign --headed
 npm run eval -- --concurrency 4 --repeat 3    # parallel workers, 3 trials each
 npm run eval -- --model groq:openai/gpt-oss-120b --tag oss
 npm run compare                               # table of every run in ./runs
+npm run eval -- --out runs/<existing-run>      # resume: skips finished scenarios, re-reports the folder
 ```
 
 | Category | Scenarios |
