@@ -1,5 +1,5 @@
 {
-  "name": "livedemo-agent",
+  "name": "closer",
   "version": "0.1.0",
   "private": true,
   "description": "A sales-demo agent that drives a real browser while talking to a buyer, with an eval suite for interruptions and browser failures.",
@@ -14,8 +14,8 @@
     "compare": "tsx src/cli/compare.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "mcp": "node bin/livedemo-mcp.mjs",
-    "mcp:inspect": "npx @modelcontextprotocol/inspector node bin/livedemo-mcp.mjs"
+    "mcp": "node bin/closer-mcp.mjs",
+    "mcp:inspect": "npx @modelcontextprotocol/inspector node bin/closer-mcp.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
@@ -29,6 +29,6 @@
     "typescript": "^7.0.2"
   },
   "bin": {
-    "livedemo-mcp": "bin/livedemo-mcp.mjs"
+    "closer-mcp": "bin/closer-mcp.mjs"
   }
 }

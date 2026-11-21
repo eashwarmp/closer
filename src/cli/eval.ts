@@ -18,7 +18,7 @@ import { SCENARIOS } from "../eval/scenarios.js";
 
 const { values: args } = parseArgs({
   options: {
-    model: { type: "string", default: process.env.LIVEDEMO_MODEL ?? DEFAULT_MODEL },
+    model: { type: "string", default: process.env.CLOSER_MODEL ?? DEFAULT_MODEL },
     effort: { type: "string", default: "medium" },
     only: { type: "string" },
     tag: { type: "string" },

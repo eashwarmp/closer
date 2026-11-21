@@ -16,7 +16,7 @@ import { SCENARIOS, type Scenario } from "../src/eval/scenarios.js";
 import { refFor, ScriptedModel, text, use, type PolicyCtx } from "./helpers.js";
 
 let crm: CrmServer;
-const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "livedemo-test-"));
+const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "closer-test-"));
 before(async () => {
   crm = await startCrm();
 });

@@ -12,7 +12,7 @@ import { NO_CHAOS } from "../crm/chaos.js";
 import { startCrm, type CrmServer } from "../crm/server.js";
 import { TODAY } from "../crm/store.js";
 
-export interface LiveDemoMcpOptions {
+export interface CloserMcpOptions {
   /** Use a CRM that's already running. Otherwise one is started in-process. */
   crmUrl?: string;
   crmPort?: number;
@@ -24,7 +24,7 @@ export interface LiveDemoMcpOptions {
   log?: (msg: string) => void;
 }
 
-export interface LiveDemoMcp {
+export interface CloserMcp {
   server: McpServer;
   close(): Promise<void>;
 }
@@ -39,8 +39,8 @@ const FaultsSchema = {
   failNextSaves: z.number().int().min(0).max(5).optional().describe("Fail the next N lead creations with a 500"),
 };
 
-export function createLiveDemoMcp(opts: LiveDemoMcpOptions = {}): LiveDemoMcp {
-  const log = opts.log ?? ((m: string) => process.stderr.write(`[livedemo] ${m}\n`));
+export function createCloserMcp(opts: CloserMcpOptions = {}): CloserMcp {
+  const log = opts.log ?? ((m: string) => process.stderr.write(`[closer] ${m}\n`));
   const headless = opts.headless ?? false;
   let crm: CrmServer | null = null;
   let crmUrl = opts.crmUrl ?? null;
@@ -49,7 +49,7 @@ export function createLiveDemoMcp(opts: LiveDemoMcpOptions = {}): LiveDemoMcp {
   let starting: Promise<void> | null = null;
 
   const server = new McpServer(
-    { name: "livedemo", title: "LiveDemo: Pipewise CRM browser", version: "0.1.0" },
+    { name: "closer", title: "Closer: AI sales engineer (Pipewise demo browser)", version: "0.1.0" },
     {
       instructions: `This server drives a real browser showing Pipewise, a demo CRM with synthetic data. Use it to give a live product demo or to practise one.
 Every action returns the page state afterwards: read it to confirm what happened before you say it worked, and use element refs only from the most recent state.
@@ -226,7 +226,7 @@ Deleting data needs the person's explicit approval: call request_approval before
           role: "user",
           content: {
             type: "text",
-            text: `You're a solutions engineer giving a live demo of Pipewise CRM${buyer ? ` to ${buyer}` : ""}, using the livedemo browser tools. I'm the buyer, watching your screen.
+            text: `You're a solutions engineer giving a live demo of Pipewise CRM${buyer ? ` to ${buyer}` : ""}, using the closer browser tools. I'm the buyer, watching your screen.
 
 Today is ${TODAY}. Start by observing the page, greet me in a sentence, and ask what I'd like to see.
 

@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { ElicitRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { createLiveDemoMcp } from "../src/mcp/server.js";
+import { createCloserMcp } from "../src/mcp/server.js";
 
 const textOf = (r: unknown) =>
   ((r as CallToolResult).content ?? []).flatMap((c) => (c.type === "text" ? [c.text] : [])).join("\n");
@@ -16,7 +16,7 @@ const refIn = (page: string, label: RegExp) => {
 
 /** An in-process client, optionally able to show approval prompts and answering them with `approve`. */
 async function connect(approve?: () => boolean) {
-  const mcp = createLiveDemoMcp({ headless: true, crmPort: 0, log: () => {} });
+  const mcp = createCloserMcp({ headless: true, crmPort: 0, log: () => {} });
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "test", version: "1" }, { capabilities: approve ? { elicitation: {} } : {} });
   if (approve) client.setRequestHandler(ElicitRequestSchema, async () => ({ action: "accept", content: { approve: approve() } }));
@@ -29,7 +29,7 @@ async function connect(approve?: () => boolean) {
 test("stdio launcher: lists tools, prompt, and resource; drives a full create-lead flow", async () => {
   const client = new Client({ name: "test", version: "1" });
   await client.connect(
-    new StdioClientTransport({ command: process.execPath, args: ["bin/livedemo-mcp.mjs"], env: { ...process.env, LIVEDEMO_HEADLESS: "1", LIVEDEMO_CRM_PORT: "0" } as Record<string, string>, stderr: "ignore" }),
+    new StdioClientTransport({ command: process.execPath, args: ["bin/closer-mcp.mjs"], env: { ...process.env, CLOSER_HEADLESS: "1", CLOSER_CRM_PORT: "0" } as Record<string, string>, stderr: "ignore" }),
   );
   try {
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();

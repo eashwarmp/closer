@@ -1,6 +1,8 @@
-# LiveDemo Agent
+# Closer
 
-An AI solutions engineer that demos a SaaS product in a real browser while talking to a buyer, and keeps its footing when the buyer interrupts, changes their mind, or the UI misbehaves.
+**The AI sales engineer that runs your product demo live.** It talks to the buyer, drives the real app in a browser, and doesn't fall apart when they interrupt.
+
+Voice-ready · MCP server · 21-scenario eval suite
 
 > "Can you show me how to create a lead, assign it to a salesperson, and set up a follow-up?"
 >
@@ -40,16 +42,16 @@ The conversation history is append-only (thinking blocks stay valid, and the pro
 
 `src/mcp` exposes Pipewise and the browser as an MCP server (official `@modelcontextprotocol/sdk`, stdio). A browser window opens on first use so you can watch the demo. The model in your MCP client drives it.
 
-**Claude Code:** this repo ships a `.mcp.json`, so opening the repo in Claude Code offers the `livedemo` server. From anywhere else:
+**Claude Code:** this repo ships a `.mcp.json`, so opening the repo in Claude Code offers the `closer` server. From anywhere else:
 
 ```
-claude mcp add livedemo -- node /path/to/livedemo-agent/bin/livedemo-mcp.mjs
+claude mcp add closer -- node /path/to/closer/bin/closer-mcp.mjs
 ```
 
 **Claude Desktop:** add to `claude_desktop_config.json`:
 
 ```json
-{ "mcpServers": { "livedemo": { "command": "node", "args": ["/path/to/livedemo-agent/bin/livedemo-mcp.mjs"] } } }
+{ "mcpServers": { "closer": { "command": "node", "args": ["/path/to/closer/bin/closer-mcp.mjs"] } } }
 ```
 
 Then use the **Run a Pipewise demo** prompt (`run_demo`), or just ask: "Show me how to create a lead in Pipewise and assign it to Sarah."
@@ -62,7 +64,7 @@ Then use the **Run a Pipewise demo** prompt (`run_demo`), or just ask: "Show me 
 | `record_user_approval` | Fallback for clients without elicitation: records the person's verbatim "yes". Marked destructive, so clients ask permission before running it. |
 | `reset_demo` | Restore demo data, optionally with faults on (blocking modal, moved buttons, reworded labels, slow or failing saves) to rehearse recovery |
 
-Also: resource `pipewise://state` (all CRM data as JSON) and prompt `run_demo`. Settings: `LIVEDEMO_HEADLESS=1` hides the window, `LIVEDEMO_CRM_URL` points at an existing CRM, `LIVEDEMO_CRM_PORT` (default 4100). Run `npm run mcp:inspect` to explore it in the MCP Inspector.
+Also: resource `pipewise://state` (all CRM data as JSON) and prompt `run_demo`. Settings: `CLOSER_HEADLESS=1` hides the window, `CLOSER_CRM_URL` points at an existing CRM, `CLOSER_CRM_PORT` (default 4100). Run `npm run mcp:inspect` to explore it in the MCP Inspector.
 
 `tests/mcp.test.ts` is the reference client. It uses the SDK's `Client` over the real stdio launcher and over an in-memory transport, and covers a full create-lead flow, screenshots, the resource, and both approval paths.
 
@@ -142,7 +144,7 @@ A demo is 20 to 40 model calls with a 10K to 40K-token context, and the model ha
 src/crm/        sample CRM: data, pages, fault injection
 src/browser/    Playwright session + page snapshot
 src/agent/      agent loop, tools, prompt, model clients
-src/mcp/        MCP server (official SDK) + stdio entry point; bin/livedemo-mcp.mjs launches it
+src/mcp/        MCP server (official SDK) + stdio entry point; bin/closer-mcp.mjs launches it
 src/eval/       scenarios, runner (simulated buyer), report
 src/cli/        demo, eval, compare, crm
 tests/          end-to-end harness tests with scripted agents; MCP client tests

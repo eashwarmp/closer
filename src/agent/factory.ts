@@ -16,7 +16,7 @@ export const DEFAULT_MODEL = "claude-opus-5-5";
 
 /**
  * "claude-opus-5-5" -> Anthropic API. "<provider>:<model>" -> that OpenAI-compatible provider,
- * e.g. "ollama:qwen3:4b" or "groq:openai/gpt-oss-120b". LIVEDEMO_BASE_URL overrides the provider URL.
+ * e.g. "ollama:qwen3:4b" or "groq:openai/gpt-oss-120b". CLOSER_BASE_URL overrides the provider URL.
  */
 export function makeModel(spec = DEFAULT_MODEL, effort: Effort = "medium"): ModelClient {
   const i = spec.indexOf(":");
@@ -30,5 +30,5 @@ export function makeModel(spec = DEFAULT_MODEL, effort: Effort = "medium"): Mode
   if (p.keyEnv && !apiKey) throw new Error(`${provider} needs ${p.keyEnv} set in the environment.`);
   // OpenAI-style reasoning_effort tops out at "high".
   const oaiEffort = effort === "low" || effort === "medium" ? effort : "high";
-  return new OpenAICompatModel({ baseUrl: process.env.LIVEDEMO_BASE_URL ?? p.baseUrl, model: spec.slice(i + 1), apiKey, effort: provider === "gemini" ? oaiEffort : undefined });
+  return new OpenAICompatModel({ baseUrl: process.env.CLOSER_BASE_URL ?? p.baseUrl, model: spec.slice(i + 1), apiKey, effort: provider === "gemini" ? oaiEffort : undefined });
 }
