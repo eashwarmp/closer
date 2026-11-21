@@ -22,6 +22,6 @@ console.log("| Run | Model | Prompt | Pass | Action success | Recovery | Speech 
 console.log("|---|---|---|---|---|---|---|---|---|");
 for (const r of runs) {
   console.log(
-    `| ${r.meta.tag} | ${r.meta.model} (${r.meta.effort}) | ${r.meta.promptVersion} | ${r.passed}/${r.scenarios} | ${p(r.actionSuccess)} | ${p(r.recovery.rate)} | ${s(r.speechLatencyMs.p50)}/${s(r.speechLatencyMs.p95)} | $${r.avgCostUsd.toFixed(3)} | ${Math.round(r.avgTokens).toLocaleString("en-US")} |`,
+    `| ${r.meta.tag} | ${r.meta.model} (${r.meta.effort}) | ${r.meta.promptVersion} | ${r.passed}/${r.scenarios}${r.errored ? ` (+${r.errored} err)` : ""} | ${p(r.actionSuccess)} | ${p(r.recovery.rate)} | ${s(r.speechLatencyMs.p50)}/${s(r.speechLatencyMs.p95)} | $${r.avgCostUsd.toFixed(3)} | ${Math.round(r.avgTokens).toLocaleString("en-US")} |`,
   );
 }

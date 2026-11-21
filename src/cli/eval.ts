@@ -71,7 +71,11 @@ async function runIdsHere(ids: string[]): Promise<void> {
           log: args.quiet ? undefined : (line) => console.log(line),
         },
       );
-      console.log(`${r.passed ? "✅ PASS" : "❌ FAIL"} ${runId} (${(r.durationMs / 1000).toFixed(0)}s, $${r.costUsd.toFixed(3)})${r.passed ? "" : r.error ? `  crashed: ${r.error}` : `  ${r.checks.filter((c) => !c.pass).map((c) => c.name).join("; ") || r.outcome}`}`);
+      if (r.outcome === "crashed" && /\b429\b[\s\S]*(per day|PerDay)/.test(r.error ?? "")) {
+        console.log(`⛔ ${runId}: provider's daily quota is exhausted; stopping this worker.\n   ${r.error?.match(/retry in [^.]+/i)?.[0] ?? ""}`);
+        break;
+      }
+      console.log(`${r.outcome === "crashed" ? "⚠️  ERROR" : r.passed ? "✅ PASS" : "❌ FAIL"} ${runId} (${(r.durationMs / 1000).toFixed(0)}s, $${r.costUsd.toFixed(3)})${r.passed ? "" : r.error ? `  crashed: ${r.error}` : `  ${r.checks.filter((c) => !c.pass).map((c) => c.name).join("; ") || r.outcome}`}`);
     }
   } finally {
     await crm.close();
@@ -117,5 +121,5 @@ const meta: RunMeta = { tag, model: args.model, effort: args.effort, promptVersi
 const summary = summarize(meta, results);
 fs.writeFileSync(path.join(outDir, "summary.json"), JSON.stringify(summary, null, 2));
 fs.writeFileSync(path.join(outDir, "report.md"), renderMarkdown(summary, results));
-console.log(`\n${summary.passed}/${summary.scenarios} passed. Report: ${path.join(outDir, "report.md")}`);
+console.log(`\n${summary.passed}/${summary.scenarios} passed${summary.errored ? `, ${summary.errored} errored (excluded)` : ""}. Report: ${path.join(outDir, "report.md")}`);
 if (results.length < runIds.length) console.log(`⚠ ${runIds.length - results.length} run(s) produced no result; see worker output above.`);

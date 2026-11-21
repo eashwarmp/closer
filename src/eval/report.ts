@@ -13,6 +13,8 @@ export interface Summary {
   meta: RunMeta;
   scenarios: number;
   passed: number;
+  /** Runs that never got a fair attempt (provider quota, network, crash). Excluded from rates below. */
+  errored: number;
   taskCompletion: number;
   /** Browser actions that worked, excluding failures the harness injected on purpose. */
   actionSuccess: number;
@@ -36,7 +38,8 @@ const pct = (xs: number[], p: number): number | null => {
 };
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
-export function summarize(meta: RunMeta, results: ScenarioResult[]): Summary {
+export function summarize(meta: RunMeta, all: ScenarioResult[]): Summary {
+  const results = all.filter((r) => r.outcome !== "crashed");
   const actions = results.reduce((n, r) => n + r.browserActions - r.injectedFailures, 0);
   const failed = results.reduce((n, r) => n + r.failedActions - r.injectedFailures, 0);
   const hadFailure = results.filter((r) => r.failedActions > 0);
@@ -51,6 +54,7 @@ export function summarize(meta: RunMeta, results: ScenarioResult[]): Summary {
   return {
     meta,
     scenarios: results.length,
+    errored: all.length - results.length,
     passed: results.filter((r) => r.passed).length,
     taskCompletion: results.length ? results.filter((r) => r.passed).length / results.length : 0,
     actionSuccess: actions ? (actions - failed) / actions : 1,
@@ -80,6 +84,7 @@ export function renderMarkdown(sum: Summary, results: ScenarioResult[]): string 
     "| Metric | Value |",
     "|---|---|",
     `| Task completion | **${sum.passed}/${sum.scenarios} (${p(sum.taskCompletion)})** |`,
+    ...(sum.errored ? [`| Errored (infra, excluded above) | ${sum.errored} |`] : []),
     `| Browser action success | ${p(sum.actionSuccess)} (injected faults excluded) |`,
     `| Recovery after a failed action | ${p(sum.recovery.rate)} of ${sum.recovery.of} scenarios |`,
     `| Time to first speech, p50 / p95 | ${s(sum.speechLatencyMs.p50)} / ${s(sum.speechLatencyMs.p95)} |`,
