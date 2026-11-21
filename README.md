@@ -89,6 +89,8 @@ npm run demo -- --voice # the agent also speaks (macOS `say`); typing cuts it of
 
 ### Open models
 
+Keys can live in a gitignored `.env` file in the repo root; the CLIs load it automatically.
+
 Any OpenAI-compatible endpoint works through `--model <provider>:<model>`:
 
 | Provider | Example | Key |
@@ -98,6 +100,7 @@ Any OpenAI-compatible endpoint works through `--model <provider>:<model>`:
 | Groq | `groq:openai/gpt-oss-120b` | `GROQ_API_KEY` |
 | Cerebras | `cerebras:<model>` | `CEREBRAS_API_KEY` |
 | OpenRouter | `openrouter:<model>` | `OPENROUTER_API_KEY` |
+| Google Gemini | `gemini:gemini-3.5-flash` | `GEMINI_API_KEY` (free tier from AI Studio) |
 
 A demo is 20 to 40 model calls with a 10K to 40K-token context, and the model has to manage many tool calls in a row and re-plan after interruptions. Small local models run it slowly and less reliably. The eval suite is how you find out by how much.
 

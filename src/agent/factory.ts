@@ -8,6 +8,8 @@ const PROVIDERS: Record<string, { baseUrl: string; keyEnv?: string }> = {
   groq: { baseUrl: "https://api.groq.com/openai/v1", keyEnv: "GROQ_API_KEY" },
   cerebras: { baseUrl: "https://api.cerebras.ai/v1", keyEnv: "CEREBRAS_API_KEY" },
   openrouter: { baseUrl: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY" },
+  // Gemini API's OpenAI-compatible endpoint. Keys come from Google AI Studio (free tier available).
+  gemini: { baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", keyEnv: "GEMINI_API_KEY" },
 };
 
 export const DEFAULT_MODEL = "claude-opus-5-5";

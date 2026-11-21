@@ -3,6 +3,7 @@
 //   npm run eval -- --only interrupt-reassign,modal-delayed --headed
 //   npm run eval -- --model groq:openai/gpt-oss-120b --tag oss-baseline --concurrency 3
 
+import "./env.js";
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";

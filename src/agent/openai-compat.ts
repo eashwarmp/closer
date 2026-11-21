@@ -13,6 +13,8 @@ interface OaiToolCall {
   id: string;
   type: "function";
   function: { name: string; arguments: string };
+  /** Provider-specific data that must be echoed back, e.g. Gemini's thought signatures. */
+  extra_content?: unknown;
 }
 interface OaiResponse {
   model: string;
@@ -28,30 +30,54 @@ export interface OpenAICompatOptions {
 
 export class OpenAICompatModel implements ModelClient {
   readonly model: string;
+  /** extra_content per tool call id, replayed on later requests (Gemini 3 rejects tool calls without it). */
+  private extras = new Map<string, unknown>();
 
   constructor(private opts: OpenAICompatOptions) {
     this.model = opts.model;
   }
 
   async create(req: ModelRequest, signal: AbortSignal, cb: ModelCallbacks = {}): Promise<Anthropic.Beta.BetaMessage> {
-    const res = await fetch(`${this.opts.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-      method: "POST",
-      signal,
-      headers: { "content-type": "application/json", ...(this.opts.apiKey ? { authorization: `Bearer ${this.opts.apiKey}` } : {}) },
-      body: JSON.stringify({
-        model: this.opts.model,
-        messages: toOpenAI(req),
-        tools: req.tools.flatMap((t) =>
-          "input_schema" in t ? [{ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }] : [],
-        ),
-        tool_choice: "auto",
-      }),
+    const body = JSON.stringify({
+      model: this.opts.model,
+      messages: toOpenAI(req, this.extras),
+      tools: req.tools.flatMap((t) =>
+        "input_schema" in t ? [{ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }] : [],
+      ),
+      tool_choice: "auto",
     });
+    let res: Response;
+    // Free tiers return 429/503 under load; retry with backoff like the Anthropic SDK does.
+    for (let attempt = 0; ; attempt++) {
+      res = await fetch(`${this.opts.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+        method: "POST",
+        signal,
+        headers: { "content-type": "application/json", ...(this.opts.apiKey ? { authorization: `Bearer ${this.opts.apiKey}` } : {}) },
+        body,
+      });
+      if (res.ok || attempt >= MAX_RETRIES || !(res.status === 429 || res.status >= 500)) break;
+      const retryAfter = Number(res.headers.get("retry-after"));
+      await sleep(retryAfter > 0 ? Math.min(retryAfter, 30) * 1000 : 1000 * 2 ** attempt, signal);
+    }
     if (!res.ok) throw new Error(`${this.opts.baseUrl} returned ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const message = fromOpenAI((await res.json()) as OaiResponse);
+    const data = (await res.json()) as OaiResponse;
+    for (const call of data.choices[0]?.message.tool_calls ?? []) if (call.extra_content) this.extras.set(call.id, call.extra_content);
+    const message = fromOpenAI(data);
     for (const block of message.content) cb.onBlock?.(block);
     return message;
   }
+}
+
+const MAX_RETRIES = 5;
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(t);
+      reject(signal.reason);
+    });
+  });
 }
 
 function textOf(content: Anthropic.Beta.BetaToolResultBlockParam["content"]): string {
@@ -59,14 +85,16 @@ function textOf(content: Anthropic.Beta.BetaToolResultBlockParam["content"]): st
   return (content ?? []).map((c) => (c.type === "text" ? c.text : `[${c.type} omitted]`)).join("\n");
 }
 
-export function toOpenAI(req: ModelRequest): OaiMessage[] {
+export function toOpenAI(req: ModelRequest, extras: Map<string, unknown> = new Map()): OaiMessage[] {
   const out: OaiMessage[] = [{ role: "system", content: req.system }];
   for (const m of req.messages) {
     const blocks = typeof m.content === "string" ? [{ type: "text" as const, text: m.content }] : (m.content ?? []);
     if (m.role === "assistant") {
       const text = blocks.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
       const calls = blocks.flatMap((b) =>
-        b.type === "tool_use" ? [{ id: b.id, type: "function" as const, function: { name: b.name, arguments: JSON.stringify(b.input) } }] : [],
+        b.type === "tool_use"
+          ? [{ id: b.id, type: "function" as const, function: { name: b.name, arguments: JSON.stringify(b.input) }, ...(extras.has(b.id) ? { extra_content: extras.get(b.id) } : {}) }]
+          : [],
       );
       out.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
       continue;

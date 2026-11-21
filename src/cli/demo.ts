@@ -3,6 +3,7 @@
 //   npm run demo -- --voice                 (agent speaks through macOS `say`; typing cuts it off)
 //   npm run demo -- --model ollama:qwen3:4b
 
+import "./env.js";
 import { spawn, type ChildProcess } from "node:child_process";
 import readline from "node:readline";
 import { parseArgs } from "node:util";
